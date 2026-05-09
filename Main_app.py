@@ -7,7 +7,7 @@ load_css()
 
 @st.cache_data
 def load_data():
-    df = pd.read_excel("Freight_Master.xlsx").fillna("")
+    df = pd.read_excel("Freight_Master(1).xlsx").fillna("")
     df.columns = df.columns.str.strip()
     return df
 
@@ -60,32 +60,65 @@ if page == "finder":
     </div>
     """, unsafe_allow_html=True)
 
-    # Search Card — party left, delivery right, SEARCH below (no Clear All Filters)
+    # ── BIDIRECTIONAL CASCADING LOGIC ──
+    # Step 1: Read current selections from session state (before rendering)
+    current_party    = st.session_state.get(f"p_in_{rc}", "")
+    current_delivery = st.session_state.get(f"d_in_{rc}", "")
+
+    # Step 2: Filter party options based on delivery selection
+    if current_delivery:
+        matched_parties = (
+            df[df["DELIVERY LOCATION"] == current_delivery]["LOADING PARTY"]
+            .dropna().unique().tolist()
+        )
+        party_options  = [""] + sorted(matched_parties)
+        party_help     = f"{len(matched_parties)} parties ship to this location"
+    else:
+        party_options  = [""] + sorted(df["LOADING PARTY"].dropna().unique().tolist())
+        party_help     = "Select a Delivery Location to filter parties"
+
+    # Step 3: Filter delivery options based on party selection
+    if current_party:
+        matched_deliveries = (
+            df[df["LOADING PARTY"] == current_party]["DELIVERY LOCATION"]
+            .dropna().unique().tolist()
+        )
+        delivery_options = [""] + sorted(matched_deliveries)
+        delivery_help    = f"{len(matched_deliveries)} locations for this party"
+    else:
+        delivery_options = [""] + sorted(df["DELIVERY LOCATION"].dropna().unique().tolist())
+        delivery_help    = "Select a Loading Party to filter locations"
+
+    # Search Card — bidirectional cascading dropdowns
     with st.container(border=True):
         col1, col2 = st.columns([5, 5])
         with col1:
-            # key uses rc so resetting rc clears the widget instantly
-            party = st.text_input(
+            party = st.selectbox(
                 "Enter Loading Party",
-                placeholder="Type loading party...",
-                key=f"p_in_{rc}"
+                options=party_options,
+                index=0,
+                key=f"p_in_{rc}",
+                help=party_help
             )
         with col2:
-            delivery = st.text_input(
+            delivery = st.selectbox(
                 "Enter Delivery Location",
-                placeholder="Type delivery location...",
-                key=f"d_in_{rc}"
+                options=delivery_options,
+                index=0,
+                key=f"d_in_{rc}",
+                help=delivery_help
             )
+
         btn_col1, btn_col2, btn_col3 = st.columns([3, 2, 3])
         with btn_col2:
             search = st.button("🔍 SEARCH", use_container_width=True, key="search_btn")
 
-    # Filter
+    # Filter — exact match from selectbox
     filtered = df.copy()
     if delivery:
-        filtered = filtered[filtered["DELIVERY LOCATION"].str.contains(delivery, case=False, na=False)]
+        filtered = filtered[filtered["DELIVERY LOCATION"] == delivery]
     if party:
-        filtered = filtered[filtered["LOADING PARTY"].str.contains(party, case=False, na=False)]
+        filtered = filtered[filtered["LOADING PARTY"] == party]
 
     # Results
     if search or delivery or party:
@@ -94,7 +127,10 @@ if page == "finder":
             st.warning("❌ No records found. Try different search terms.")
             st.markdown("</div>", unsafe_allow_html=True)
         else:
-            rates = pd.to_numeric(filtered["FROM RATE"], errors="coerce").dropna()
+            # Only include real rates > 0 (removes blanks, zeros, adjustments)
+            all_rates = pd.to_numeric(filtered["FROM RATE"], errors="coerce")
+            rates = all_rates[all_rates > 0].dropna()
+
             count  = f"{len(filtered):,}"
             r_min  = f"₹ {int(rates.min()):,}"  if len(rates) else "N/A"
             r_max  = f"₹ {int(rates.max()):,}"  if len(rates) else "N/A"
@@ -134,8 +170,10 @@ if page == "finder":
             st.markdown("</div>", unsafe_allow_html=True)
 
             st.markdown('<div class="table-wrap">', unsafe_allow_html=True)
-            cols = [c for c in ["ID","LOADING PARTY","LOADING LOCATION",
-                                 "DELIVERY LOCATION","FROM RATE","TO RATE","DATE"]
+            # Show all columns except LOADING PARTY
+            cols = [c for c in ["ID","LOADING LOCATION","DELIVERY LOCATION",
+                                 "FROM RATE","TRANSPORTER NAME","PARTY NAME",
+                                 "A/E","DATE"]
                     if c in filtered.columns]
             st.dataframe(filtered[cols].reset_index(drop=True), use_container_width=True)
             csv = filtered.to_csv(index=False).encode("utf-8")
@@ -145,13 +183,28 @@ if page == "finder":
 # ── DATA VIEW ──────────────────────────────────────────
 elif page == "data":
     st.markdown('<div class="page-title">🗂️ Data View</div>', unsafe_allow_html=True)
-    st.markdown("<div style='padding:20px 40px'>", unsafe_allow_html=True)
-    c1, c2 = st.columns([4, 1])
-    with c1: st.info(f"Showing all **{len(df):,}** records")
+    st.markdown("<div style='padding:10px 40px 40px 40px;'>", unsafe_allow_html=True)
+
+    # Top bar — record count + export button
+    c1, c2 = st.columns([5, 1])
+    with c1:
+        st.markdown(f"""
+        <div style="font-size:16px;font-weight:600;color:#4f8ef7;padding:12px 0 16px 0;">
+            Showing all &nbsp;<span style="color:white;font-weight:800;">{len(df):,}</span>&nbsp; records
+            &nbsp;·&nbsp;
+            <span style="color:rgba(255,255,255,0.45);font-size:14px;">{len(df.columns)} columns</span>
+        </div>
+        """, unsafe_allow_html=True)
     with c2:
         csv_all = df.to_csv(index=False).encode("utf-8")
         st.download_button("⬇️ Export CSV", csv_all, "freight_master.csv", "text/csv")
-    st.dataframe(df, use_container_width=True)
+
+    # Show ALL columns exactly as they are in the Excel — no hardcoding
+    st.dataframe(
+        df.reset_index(drop=True),
+        use_container_width=True,
+        height=600
+    )
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ── ABOUT ──────────────────────────────────────────────
