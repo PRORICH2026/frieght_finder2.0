@@ -7,7 +7,7 @@ load_css()
 
 @st.cache_data
 def load_data():
-    df = pd.read_excel("Freight Master (1).xlsx").fillna("")
+    df = pd.read_excel("Freight_Master.xlsx").fillna("")
     df.columns = df.columns.str.strip()
     return df
 
