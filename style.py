@@ -99,6 +99,41 @@ def load_css():
         color: rgba(255,255,255,0.78); margin-bottom: 32px;
     }}
 
+    /* ── SELECTBOX AUTOCOMPLETE STYLING ── */
+    [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stSelectbox"] > div > div {{
+        background: rgba(255,255,255,0.08) !important;
+        color: white !important;
+        border: 1.5px solid rgba(255,255,255,0.13) !important;
+        border-radius: 11px !important;
+        font-size: 15px !important;
+        font-weight: 500 !important;
+        min-height: 50px !important;
+    }}
+    [data-testid="stVerticalBlockBorderWrapper"] [data-testid="stSelectbox"] svg {{
+        fill: rgba(255,255,255,0.5) !important;
+    }}
+    /* Dropdown popup list */
+    [data-baseweb="popover"] ul {{
+        background: #0d1421 !important;
+        border: 1px solid rgba(255,255,255,0.12) !important;
+        border-radius: 12px !important;
+    }}
+    [data-baseweb="popover"] li {{
+        color: rgba(255,255,255,0.75) !important;
+        font-size: 14px !important;
+    }}
+    [data-baseweb="popover"] li:hover {{
+        background: rgba(108,79,247,0.3) !important;
+        color: white !important;
+    }}
+    /* Search box inside dropdown */
+    [data-baseweb="popover"] input {{
+        background: rgba(255,255,255,0.1) !important;
+        color: white !important;
+        border-radius: 8px !important;
+        border: 1px solid rgba(255,255,255,0.2) !important;
+    }}
+
     /* ── SEARCH CARD (compact) ── */
     .search-wrap {{
         max-width: 820px; margin: 0 auto;
